@@ -10,6 +10,10 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'png') # make images smaller resolution in pdf
+source("logistic.R", local = knitr::knit_global())
+source("mice.R", local = knitr::knit_global())
+source("rf.R", local = knitr::knit_global())
+source("utils.R", local = knitr::knit_global())
 ```
 
 ## QUESTION ONE (10 MARKS)
@@ -18,7 +22,11 @@ Visualise the patterns of missing data for hepatitis.data and briefly comment on
 you observe. 
 
 ```{r, warning=FALSE}
-
+library(naniar)
+library(ggplot2)
+Hep <- read.csv("hepatitis.data")
+gg_miss_var(Hep,show_pct=TRUE)  
+gg_miss_upset(Hep,nsets=ncol(Hep),nintersects=NA)
 ```
 
 ## QUESTION TWO (10 MARKS)
@@ -28,7 +36,13 @@ modelling.
 
 
 ```{r, warning=FALSE}
-
+t <- table(Hep$Class, Hep$Sex)
+colnames(t) = c("Male", "Female")
+rownames(t) = c("Died", "Lived")
+g <- table(Hep$Sex)
+rownames(g) = c("Male", "Female")
+t
+g
 ```
 
 ## QUESTION THREE (45 MARKS) - Logistic Regression 
@@ -38,28 +52,21 @@ Perform the following steps
 
 
 ```{r, warning=FALSE}
-
+hep <- read.csv("hepatitis.data")
 ```
 
 3.2 Turn the response and appropriate explanatories into factors and remove the “Sex”
 column. 
 
-
-
-
-
 ```{r, warning=FALSE}
-
+hep <- data.factorise(hep, c(1,3:14,20))
+hep <- hep[,-3]
 ```
 
 3.3 Create an imputed dataset for the hepatitis data using the default values. 
 
-
-
-
-
 ```{r, warning=FALSE}
-
+hep.imp <- make.imputations(hep, 1)
 ```
 
 
@@ -70,7 +77,8 @@ Why might your result differ from the published examples?
 
 
 ```{r, warning=FALSE}
-
+logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+boxplot(logistic, main = "Logistic regression performance on 100 tests", ylab = "Accuracy")
 ```
 
 
