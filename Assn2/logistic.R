@@ -125,7 +125,12 @@ glm.coefficients <- function(imp,formula,perc.train=0.9)
 
 variable.importance <- function(imp,formula,var.col=2,perc.train=0.9)
 {
-  
+  dat <- hep.imp
+  baseline <- 1 - test.logistic(dat, class ~.) 
+  dat[,var.col] <- sample(nrows(dat[,var.col]))
+  perm <- 1 - test.logistic(dat, class ~.)
+  result <- (100 / baseline) * perm
+  return(result)
 }
 ################################################################
 # collect.var.imp(..)
@@ -147,6 +152,7 @@ collect.var.imp <- function(imp,formula,cols=2:ncol(imp[[1]]),
   res <- NULL
   for (i in 1:length(cols))
   {
+    
     # Do lazy method of binding up results....
     res <- cbind(res,
                  replicate(num.trials,variable.importance(imp,
