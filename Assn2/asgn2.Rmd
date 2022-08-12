@@ -97,7 +97,14 @@ are important?
 
 
 ```{r, warning=FALSE}
-
+importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
+importance <- importance[-1,]
+importance_sd <- as.data.frame(apply(importance, 1, sd))
+colnames(importance_sd) <- "sd"
+importance <- as.data.frame(rowMeans(importance))
+importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
+colnames(importance) <- "Value"
+barplot(importance$Value, main = "Variable importance (Breiman method)", xlab = "variables", ylab = "Importance", names.arg = rownames(importance), cex.names = 0.95)
 ```
 
 
