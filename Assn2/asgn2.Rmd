@@ -130,7 +130,9 @@ addresses:
 
 
 ```{r, warning=FALSE}
-
+percent <- collect.var.imp(hep.imp, Class ~.)
+percent <- colMeans(percent)
+barplot(percent, names.arg = rownames(importance), cex.names = 0.95, ylim = c(min(percent) - 2, max(percent) + 2))
 ```
 
 

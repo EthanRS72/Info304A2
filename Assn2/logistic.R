@@ -125,11 +125,30 @@ glm.coefficients <- function(imp,formula,perc.train=0.9)
 
 variable.importance <- function(imp,formula,var.col=2,perc.train=0.9)
 {
-  dat <- hep.imp
-  baseline <- 1 - test.logistic(dat, class ~.) 
-  dat[,var.col] <- sample(nrows(dat[,var.col]))
-  perm <- 1 - test.logistic(dat, class ~.)
-  result <- (100 / baseline) * perm
+  #train test data
+  dat <- as.matrix(imp)
+  ttdata <- get.imp.train.test(dat,perc.train=perc.train)
+  train <- ttdata[[1]]
+  test <- ttdata[[2]]
+  
+  #create standard model
+  log.mod <- glm(formula, data=train, family="binomial")
+  train.pred <- predict(log.mod,newdata=train,type="response")
+  threshold <- fast.threshold(train$Class,train.pred)
+  test.pred <- predict(log.mod,newdata=test,type="response")
+  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
+  conf.mat <- caret::confusionMatrix(data = pred.vals, 
+                                     reference=test$Class)
+  baseline <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+  #permutation test
+  test[,var.col] <- sample(test[,var.col])
+  test.pred <- predict(log.mod,newdata=test,type="response")
+  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
+  conf.mat <- caret::confusionMatrix(data = pred.vals, 
+                                     reference=test$Class)
+  perm <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+  #get difference
+  result <- ((perm - baseline) / baseline) * 100
   return(result)
 }
 ################################################################
