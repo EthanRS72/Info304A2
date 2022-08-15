@@ -132,7 +132,7 @@ addresses:
 ```{r, warning=FALSE}
 percent <- collect.var.imp(hep.imp, Class ~.)
 percent <- colMeans(percent)
-barplot(percent, names.arg = rownames(importance), cex.names = 0.95, ylim = c(min(percent) - 2, max(percent) + 2))
+barplot(percent, names.arg = rownames(importance), cex.names = 0.95, ylim = c(min(percent) - 2, max(percent) + 2), xlab = "variable", ylab = "Percentage change in error", main = "Variable importance by permutation")
 ```
 
 
@@ -148,7 +148,34 @@ evidence of their similarity/difference.
 
 
 ```{r, warning=FALSE}
+dt_scores <- c()
+log_scores <- c()
+for (var in 1:100){
+  data <- get.imp.train.test(hep.imp, perc.train=0.9)
+  train <- data[[1]]
+  test <- data[[2]]
+  dt <- build.tree(train, Class ~., maxdepth=30)
+  predictions <- predict.tree(dt, test)
+  results <- table(test$Class, predictions)
+  dt_scores[var] <- sum(diag(results))/sum(results)
+  
+  log.mod <- glm(Class ~., data=train, family="binomial")
+  train.pred <- predict(log.mod,newdata=train,type="response")
+  threshold <- fast.threshold(train$Class,train.pred)
+  test.pred <- predict(log.mod,newdata=test,type="response")
+  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
+  conf.mat <- caret::confusionMatrix(data = pred.vals, 
+                                     reference=test$Class)
+  log_scores[var] <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+}
+par(mfrow = c(1,2))
+boxplot(dt_scores, main = "Dt accuracy")
+boxplot(log_scores, main = "logistic accuracy")
 
+mean(dt_scores)
+mean(log_scores)
+sd(dt_scores)
+sd(log_scores)
 ```
 
 
