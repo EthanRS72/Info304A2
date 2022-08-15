@@ -197,7 +197,7 @@ rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
 rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
 rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
 
-results = data.frame(rf1, rf5, rf10, rf20)
+results = data.frame(rf1, rf5, rf10, rf20, log_scores, dt_scores)
 boxplot(results)
 ```
 

@@ -148,7 +148,7 @@ variable.importance <- function(imp,formula,var.col=2,perc.train=0.9)
                                      reference=test$Class)
   perm <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
   #get difference
-  result <- ((perm - baseline) / baseline) * 100
+  result <- ((baseline - perm) / baseline) * 100
   return(result)
 }
 ################################################################
@@ -166,7 +166,7 @@ variable.importance <- function(imp,formula,var.col=2,perc.train=0.9)
 #      by cols, number of rows = num.trials.
 ###################################################################
 collect.var.imp <- function(imp,formula,cols=2:ncol(imp[[1]]),
-                            perc.train=0.9, num.trials=10)
+                            perc.train=0.9, num.trials=100)
 {
   res <- NULL
   for (i in 1:length(cols))
