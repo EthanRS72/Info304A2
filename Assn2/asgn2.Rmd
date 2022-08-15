@@ -169,8 +169,8 @@ for (var in 1:100){
   log_scores[var] <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
 }
 par(mfrow = c(1,2))
-boxplot(dt_scores, main = "Dt accuracy")
-boxplot(log_scores, main = "logistic accuracy")
+boxplot(dt_scores, main = "Dt accuracy", ylim = c(0.5,1.0))
+boxplot(log_scores, main = "logistic accuracy", ylim = c(0.5,1.0))
 
 mean(dt_scores)
 mean(log_scores)
