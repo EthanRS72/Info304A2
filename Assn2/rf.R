@@ -40,6 +40,19 @@ predict.tree <- function(tree,test,type="class")
           newdata=test,
           type=type)
 }
+
+
+
+
+test.dt <- function(dat, formula, perc.train = 0.9, maxdepth = 30) {
+  data <- get.imp.train.test(dat, perc.train=0.9)
+  train <- data[[1]]
+  test <- data[[2]]
+  dt.mod <- build.tree(train, formula, maxdepth=30)
+  predictions <- predict.tree(dt.mod, test)
+  results <- table(test$Class, predictions)
+  return (sum(diag(results))/sum(results))
+}
 ##############################################################
 # rf.predictions
 #########################

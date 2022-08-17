@@ -148,29 +148,15 @@ evidence of their similarity/difference.
 
 
 ```{r, warning=FALSE}
-dt <- c()
-log <- c()
-for (var in 1:100){
-  data <- get.imp.train.test(hep.imp, perc.train=0.9)
-  train <- data[[1]]
-  test <- data[[2]]
-  dt.mod <- build.tree(train, Class ~., maxdepth=30)
-  predictions <- predict.tree(dt.mod, test)
-  results <- table(test$Class, predictions)
-  dt[var] <- sum(diag(results))/sum(results)
-  
-  log.mod <- glm(Class ~., data=train, family="binomial")
-  train.pred <- predict(log.mod,newdata=train,type="response")
-  threshold <- fast.threshold(train$Class,train.pred)
-  test.pred <- predict(log.mod,newdata=test,type="response")
-  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
-  conf.mat <- caret::confusionMatrix(data = pred.vals, 
-                                     reference=test$Class)
-  log[var] <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
-}
+num <- sample.int(999, 1)
+set.seed(num)
+
+logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+dt <- replicate(100, test.dt(hep.imp, Class ~.))
+
 par(mfrow = c(1,2))
-boxplot(dt, main = "Dt accuracy", ylim = c(0.5,1.0))
 boxplot(log, main = "logistic accuracy", ylim = c(0.5,1.0))
+boxplot(dt, main = "Dt accuracy", ylim = c(0.5,1.0))
 
 mean(dt)
 mean(log)
@@ -184,7 +170,7 @@ the predict.rf(..) function takes an imputed list of datasets, and builds a rand
 
 Give a brief description of how the random forest is created and tested.
 Run the supplied code and compare the resulting accuracy against the logistic model and
-single decision tree. Use replicate to run predict.rf(…) 100 times with ntrees=1, 5, 10 and 20.
+single decision tree. Use replicate to run test.rf(…) 100 times with ntrees=1, 5, 10 and 20.
 
 Leave the other parameters at their default value. Does the performance improve? Briefly
 explain why this model seems superior (does it?) to logistic regression and a single decision tree. 
@@ -192,11 +178,15 @@ explain why this model seems superior (does it?) to logistic regression and a si
 
 
 ```{r, warning=FALSE}
+num <- sample.int(999, 1)
+set.seed(num)
+logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+dt <- replicate(100, test.dt(hep.imp, Class ~.))
 rf1 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 1))
 rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
 rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
 rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
-logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+
 
 results = data.frame(rf1, rf5, rf10, rf20, logistic, dt)
 boxplot(results, main = "Model accuracy scores", xlab = "models", ylab = "Accuracy")
