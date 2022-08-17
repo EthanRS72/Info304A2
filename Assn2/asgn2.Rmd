@@ -104,7 +104,7 @@ colnames(importance_sd) <- "sd"
 importance <- as.data.frame(rowMeans(importance))
 importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
 colnames(importance) <- "Value"
-barplot(importance$Value, main = "Variable importance (Breiman method)", xlab = "variables", ylab = "Importance", names.arg = rownames(importance), cex.names = 0.95)
+barplot(importance$Value, main = "Variable importance (Breiman method)", xlab = "variables", ylab = "Importance", names.arg = rownames(importance), cex.names = 0.95, ylim = c(0, max(importance$Value) + 2))
 ```
 
 
