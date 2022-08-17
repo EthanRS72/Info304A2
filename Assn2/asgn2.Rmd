@@ -148,16 +148,16 @@ evidence of their similarity/difference.
 
 
 ```{r, warning=FALSE}
-dt_scores <- c()
-log_scores <- c()
+dt <- c()
+log <- c()
 for (var in 1:100){
   data <- get.imp.train.test(hep.imp, perc.train=0.9)
   train <- data[[1]]
   test <- data[[2]]
-  dt <- build.tree(train, Class ~., maxdepth=30)
-  predictions <- predict.tree(dt, test)
+  dt.mod <- build.tree(train, Class ~., maxdepth=30)
+  predictions <- predict.tree(dt.mod, test)
   results <- table(test$Class, predictions)
-  dt_scores[var] <- sum(diag(results))/sum(results)
+  dt[var] <- sum(diag(results))/sum(results)
   
   log.mod <- glm(Class ~., data=train, family="binomial")
   train.pred <- predict(log.mod,newdata=train,type="response")
@@ -166,16 +166,16 @@ for (var in 1:100){
   pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
   conf.mat <- caret::confusionMatrix(data = pred.vals, 
                                      reference=test$Class)
-  log_scores[var] <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+  log[var] <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
 }
 par(mfrow = c(1,2))
-boxplot(dt_scores, main = "Dt accuracy", ylim = c(0.5,1.0))
-boxplot(log_scores, main = "logistic accuracy", ylim = c(0.5,1.0))
+boxplot(dt, main = "Dt accuracy", ylim = c(0.5,1.0))
+boxplot(log, main = "logistic accuracy", ylim = c(0.5,1.0))
 
-mean(dt_scores)
-mean(log_scores)
-sd(dt_scores)
-sd(log_scores)
+mean(dt)
+mean(log)
+sd(dt)
+sd(log)
 ```
 
 
@@ -196,9 +196,10 @@ rf1 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 1))
 rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
 rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
 rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
+logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
 
-results = data.frame(rf1, rf5, rf10, rf20, log_scores, dt_scores)
-boxplot(results)
+results = data.frame(rf1, rf5, rf10, rf20, logistic, dt)
+boxplot(results, main = "Model accuracy scores", xlab = "models", ylab = "Accuracy")
 ```
 
 
