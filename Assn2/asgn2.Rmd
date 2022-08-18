@@ -27,7 +27,16 @@ library(ggplot2)
 Hep <- read.csv("hepatitis.data")
 gg_miss_var(Hep,show_pct=TRUE)  
 gg_miss_upset(Hep,nsets=ncol(Hep),nintersects=NA)
+vis_miss(Hep)
 ```
+
+Here we can see that within the entire dataset 5.4% of the values are missing. By summing the counts of each observation with NA values from the 2nd plot there are 75 observations in the dataset that are missing at least one value for a predictor (just under 50% of all observations). The three variables which are missing the most values are protime, alkphosphate and albumin. From the 2nd plot we can also see that combinations of these variables are also the most likely to be missing in comparison to other variables. 
+
+I researched into these variables and found they are all found in blood so within this sample there may have been an issue around obtaining results from blood tests of patients. The biggest concern here is for the protime predictor variable which has not been recorded for almost half the observations in the dataset. Even with methods such as imputation to help predict values for missing data this variable should be treated very carefully as there is no certainity these value will be representative of the true distribution. 
+
+It appears overall that medically based measurements that will be more unique to a patient are more likely to be missing than basic patient information but the majority of them have a small proportion of missing values that should be reasonable to account for.
+
+\newpage
 
 ## QUESTION TWO (10 MARKS)
 
@@ -39,11 +48,14 @@ modelling.
 t <- table(Hep$Class, Hep$Sex)
 colnames(t) = c("Male", "Female")
 rownames(t) = c("Died", "Lived")
-g <- table(Hep$Sex)
-rownames(g) = c("Male", "Female")
 t
-g
 ```
+
+From this table between class and sex it can be shown that sex is irrelevant for predicting whether a patient lives or dies. Overall we can see that the probability of surviving is much higher than the probability of dying, as this is combined with a very unbalanced level of males and females in the dataset it has given a set of results where all of the female patients survived and therefore there is nothing associated with a female patient dying. 
+
+Due to the imbalance between males and females in the dataset this could also cause another issue where if a random train test split is made it is possible that no females could be included in a possible training set which would cause errors for prediction. Both issues would have been likely to not exist if a larger sample of females was included but with the observations given it is clear sex should be removed as a predictor.
+
+\newpage
 
 ## QUESTION THREE (45 MARKS) - Logistic Regression 
 
@@ -97,14 +109,41 @@ are important?
 
 
 ```{r, warning=FALSE}
-importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
-importance <- importance[-1,]
-importance_sd <- as.data.frame(apply(importance, 1, sd))
-colnames(importance_sd) <- "sd"
-importance <- as.data.frame(rowMeans(importance))
-importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
-colnames(importance) <- "Value"
-barplot(importance$Value, main = "Variable importance (Breiman method)", xlab = "variables", ylab = "Importance", names.arg = rownames(importance), cex.names = 0.95, ylim = c(0, max(importance$Value) + 2))
+library(matrixStats)
+par(mfrow = c(3,2))
+for (var in 1:6) {
+  importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
+  importance <- importance[-1,]
+  importance <- as.data.frame(rowMeans(importance))
+  importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
+  overall <- cbind(overall, importance)
+  colnames(importance) <- "Value"
+  barplot(importance$Value, main = "Variable importance (Breiman)", 
+          xlab = "variables", ylab = "Importance", 
+          names.arg = rownames(importance), cex.names = 0.7,
+          ylim = c(0, max(importance) + 0.2))
+}
+
+overall <- data.frame(ncol = 18)
+for (var in 1:50) {
+  importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
+  importance <- importance[-1,]
+  importance <- as.data.frame(rowMeans(importance))
+  importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
+  overall <- cbind(overall, importance)
+}
+
+overall <- overall[,-1]
+mean <- rowMeans(overall)
+sd <- rowSds(as.matrix(overall))
+vari <- rowVars(as.matrix(overall))
+par(mfrow = c(3,1))
+barplot(mean, names.arg = rownames(importance), cex.names = 0.7,
+        main = "Mean variable importance")
+barplot(sd, names.arg = rownames(importance), cex.names = 0.7,
+        main = "SD of importance")
+barplot(vari, names.arg = rownames(importance), cex.names = 0.7,
+        main = "Variation of importance")
 ```
 
 
@@ -130,9 +169,33 @@ addresses:
 
 
 ```{r, warning=FALSE}
-percent <- collect.var.imp(hep.imp, Class ~.)
-percent <- colMeans(percent)
-barplot(percent, names.arg = rownames(importance), cex.names = 0.95, ylim = c(min(percent) - 2, max(percent) + 2), xlab = "variable", ylab = "Percentage change in error", main = "Variable importance by permutation")
+par(mfrow = c(3,2))
+for (var in 1:6) {
+  percent <- collect.var.imp(hep.imp, Class ~.)
+  percent <- colMeans(percent)
+  barplot(percent, names.arg = rownames(importance), cex.names = 0.7, 
+          ylim = c(-1, max(percent) + 1), 
+          xlab = "variable", ylab = "Error increase (%)", 
+          main = "Variable importance by permutation")
+}
+
+overall <- data.frame(ncol = 18)
+for (var in 1:50) {
+    percent <- collect.var.imp(hep.imp, Class ~.)
+  percent <- colMeans(percent)
+  overall <- cbind(overall, percent)
+}
+overall <- overall[,-1]
+mean <- rowMeans(overall)
+sd <- rowSds(as.matrix(overall))
+vari <- rowVars(as.matrix(overall))
+par(mfrow = c(3,1))
+barplot(mean, names.arg = rownames(importance), cex.names = 0.7,
+        main = "Mean variable importance")
+barplot(sd, names.arg = rownames(importance), cex.names = 0.7,
+        main = "SD of importance")
+barplot(vari, names.arg = rownames(importance), cex.names = 0.7,
+        main = "Variation of importance")
 ```
 
 
@@ -155,13 +218,15 @@ logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
 dt <- replicate(100, test.dt(hep.imp, Class ~.))
 
 par(mfrow = c(1,2))
-boxplot(log, main = "logistic accuracy", ylim = c(0.5,1.0))
+boxplot(logistic, main = "logistic accuracy", ylim = c(0.5,1.0))
 boxplot(dt, main = "Dt accuracy", ylim = c(0.5,1.0))
 
 mean(dt)
-mean(log)
+mean(logistic)
 sd(dt)
-sd(log)
+sd(logistic)
+
+t.test(logistic, dt)
 ```
 
 
@@ -178,18 +243,22 @@ explain why this model seems superior (does it?) to logistic regression and a si
 
 
 ```{r, warning=FALSE}
-num <- sample.int(999, 1)
-set.seed(num)
-logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
-dt <- replicate(100, test.dt(hep.imp, Class ~.))
-rf1 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 1))
-rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
-rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
-rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
-
-
-results = data.frame(rf1, rf5, rf10, rf20, logistic, dt)
-boxplot(results, main = "Model accuracy scores", xlab = "models", ylab = "Accuracy")
+par(mfrow = c(2,2))
+for (var in 1:4) {
+  num <- sample.int(999, 1)
+  set.seed(num)
+  logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+  dt <- replicate(100, test.dt(hep.imp, Class ~.))
+  rf1 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 1))
+  rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
+  rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
+  rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
+  
+  
+  results = data.frame(rf1, rf5, rf10, rf20, logistic, dt)
+  boxplot(results, main = "Model accuracy scores", xlab = "models", 
+          ylab = "Accuracy", names = colnames(results), las = 2)
+}
 ```
 
 
