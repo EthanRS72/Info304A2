@@ -10,6 +10,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'png') # make images smaller resolution in pdf
+#knitr::opts_chunk$set(eval = FALSE)
 source("logistic.R", local = knitr::knit_global())
 source("mice.R", local = knitr::knit_global())
 source("rf.R", local = knitr::knit_global())
@@ -93,6 +94,19 @@ logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
 boxplot(logistic, main = "Logistic regression performance on 100 tests", ylab = "Accuracy")
 ```
 
+After trialing the 100 replications of logistic regression a few times I have found that the average accuracy of the model tends to fall between 80%-90% when using all predictors aside from sex with a 90/10 train test split. 
+
+From breiman's method he obtained an average accuracy of 82.6% using this same method except he kept sex as a predictor. 
+
+
+Diaconis and Efron achieved a model with an accuracy of 80%, their method was to perform feature selection by using bootstrapped samples to obtain a prediction for the most important variables which were then used to create a final model with the variables: fatigue, spiders, varices and protime. I believe this may be slightly lower than Breiman's due to less information being modelled but this may also have a lower risk of overfitting.
+It was also mentioned that in the bootstrap variable selection no variable was selected more than 60% of the time so this could also provide some evidence that none of the variables were important enough to justify the small number of variables used to obtain a final model.
+
+I do not believe there is any significant difference between my results and these as mine fluctuate between 80%-90% between runs. As both methods only report a single result it is unknown if they have the same variation in results, so I believe the main differences in results is likely due to the variation caused by each new train/test split on the data leading to varying coefficients between runs.
+
+
+\newpage
+
 
 3.5 Breiman suggests that variable importance can be based on examining the absolute value
 of the coefficients of a variable divided by their standard deviation (over many runs of
@@ -114,9 +128,10 @@ par(mfrow = c(3,2))
 for (var in 1:6) {
   importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
   importance <- importance[-1,]
+  importance_sd <- as.data.frame(apply(importance, 1, sd))
+  colnames(importance_sd) <-"sd"
   importance <- as.data.frame(rowMeans(importance))
   importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
-  overall <- cbind(overall, importance)
   colnames(importance) <- "Value"
   barplot(importance$Value, main = "Variable importance (Breiman)", 
           xlab = "variables", ylab = "Importance", 
@@ -128,6 +143,8 @@ overall <- data.frame(ncol = 18)
 for (var in 1:50) {
   importance <-as.data.frame(abs(replicate(100, glm.coefficients(hep.imp, Class ~.)))) 
   importance <- importance[-1,]
+  importance_sd <- as.data.frame(apply(importance, 1, sd))
+  colnames(importance_sd) <-"sd"
   importance <- as.data.frame(rowMeans(importance))
   importance <- as.data.frame(importance$`rowMeans(importance)` / importance_sd$sd)
   overall <- cbind(overall, importance)
@@ -146,6 +163,12 @@ barplot(vari, names.arg = rownames(importance), cex.names = 0.7,
         main = "Variation of importance")
 ```
 
+From running the above code multiple times I have found while Breiman's evaluation of variable importance to be fairly unstable. Across multiple runs I have found the method to have a very high variance for the variables it considers "important". This means that although a variable may appear to be important across multiple runs there is no evidence to suggest that for a given train test split that variable will be considered important. This also implies that the data within the training split has a large effect on the value of the model coefficients which is typically associated with high variance within the predictors. 
+
+This suggests that Breiman's method is heavily dependent on the variables having a low variance which the hepatitis dataset does not appear to meet. So while this method does appear to provide some insight across many runs, the results themselves are very unstable so I would not recommend using this to assess variable importance for a logistic model using the hepatitis dataset.
+
+
+\newpage
 
 3.6 Implement variable importance using permutation for the logistic model and examine
 the stability using this approach. HINT: The function definition variable.importance(…)
@@ -168,10 +191,10 @@ addresses:
 
 
 
-```{r, warning=FALSE}
+```{r Permutation, warning=FALSE}
 par(mfrow = c(3,2))
 for (var in 1:6) {
-  percent <- collect.var.imp(hep.imp, Class ~.)
+   percent <- collect.var.imp(hep.imp, Class ~.)
   percent <- colMeans(percent)
   barplot(percent, names.arg = rownames(importance), cex.names = 0.7, 
           ylim = c(-1, max(percent) + 1), 
@@ -179,16 +202,16 @@ for (var in 1:6) {
           main = "Variable importance by permutation")
 }
 
-overall <- data.frame(ncol = 18)
+overall_new <- data.frame(ncol = 18)
 for (var in 1:50) {
     percent <- collect.var.imp(hep.imp, Class ~.)
   percent <- colMeans(percent)
-  overall <- cbind(overall, percent)
+  overall_new <- cbind(overall_new, percent)
 }
-overall <- overall[,-1]
-mean <- rowMeans(overall)
-sd <- rowSds(as.matrix(overall))
-vari <- rowVars(as.matrix(overall))
+overall_new <- overall_new[,-1]
+mean <- rowMeans(overall_new)
+sd <- rowSds(as.matrix(overall_new))
+vari <- rowVars(as.matrix(overall_new))
 par(mfrow = c(3,1))
 barplot(mean, names.arg = rownames(importance), cex.names = 0.7,
         main = "Mean variable importance")
@@ -198,6 +221,50 @@ barplot(vari, names.arg = rownames(importance), cex.names = 0.7,
         main = "Variation of importance")
 ```
 
+Using permutation to find an increase in error appears to provide a much more stable and identifiable measure. Compared to the Breiman's method the variation in the importance measure is lower in relation to the mean value and in the plots there appears to be more separation between important and non important variables. This method of finding more important variables also makes sense as we are testing how important a specific value of a variable when combined with the other predictors so a variable with a higher association to survival will have a significant effect on prediction when permuted.
+
+This method will allow us to build a more stable model as logistic regression performs poorly when there is a large degree of separation between variables so by clearly identifying where this separation exists through permutation we can build a more stable model so I would recommend using this method over Breiman's variable importance method.
+
+This can be seen in the set of plots for individual runs as the important variables are always important and are clearly separated from the non important variables which tend to have little to no change when permuted. Some variables that are possibly important like Ascites still vary between runs but overall this is much more stable.
+
+From my findings spiders, Bilirubin and Albumin appear to hold a significant importance in a logistic regression model while variables like Malaise and Albumin show signs of potentially being important but still show some noticeable variation in comparison to their importance.
+
+Breiman states that from his method he found Anorexia and spiders to be the two most important variables. Both methods appear to agree on spiders being an important variable, while the permutation method does not disregard anorexia as an important variable but it does have a larger variance between samples in relation to it's overall importance to the logistic model.
+
+## permuation code
+
+```{r importance code, warning=FALSE, eval = F}
+variable.importance <- function(imp,formula,var.col=2,perc.train=0.9)
+{
+  #train test data
+  dat <- as.matrix(imp)
+  ttdata <- get.imp.train.test(dat,perc.train=perc.train)
+  train <- ttdata[[1]]
+  test <- ttdata[[2]]
+  
+  #create standard model
+  log.mod <- glm(formula, data=train, family="binomial")
+  train.pred <- predict(log.mod,newdata=train,type="response")
+  threshold <- fast.threshold(train$Class,train.pred)
+  test.pred <- predict(log.mod,newdata=test,type="response")
+  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
+  conf.mat <- caret::confusionMatrix(data = pred.vals, 
+                                     reference=test$Class)
+  baseline <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+  #permutation test
+  test[,var.col] <- sample(test[,var.col])
+  test.pred <- predict(log.mod,newdata=test,type="response")
+  pred.vals <- as.factor(ifelse(test.pred >=threshold,2,1))
+  conf.mat <- caret::confusionMatrix(data = pred.vals, 
+                                     reference=test$Class)
+  perm <- (conf.mat$table[1]+conf.mat$table[4])/nrow(test)
+  #get difference
+  result <- ((baseline - perm) / baseline) * 100
+  return(result)
+}
+```
+
+\newpage
 
 ## QUESTION FOUR (20 Marks) – Decision Trees and Random Forests
 
@@ -210,7 +277,7 @@ regression result. You should also compare the 2 distributions and the mean/sd a
 evidence of their similarity/difference. 
 
 
-```{r, warning=FALSE}
+```{r warning=FALSE}
 num <- sample.int(999, 1)
 set.seed(num)
 
@@ -226,9 +293,28 @@ mean(logistic)
 sd(dt)
 sd(logistic)
 
-t.test(logistic, dt)
+wilcox.test(logistic, dt)
 ```
 
+
+Comparing the two models after multiple runs I have found that they tend to have a similar accuracy most of the time with the exception of the logistic regression model sometimes having a significant increase in accuracy. I have also noticed that the decision tree model appears to be more stable across a number of runs while the logistic regression model have a higher standard deviation which also varies more than the decision tree between runs. Overall logistic regression has the ability to perform better than the decision tree but this is not consistent as the model is less stable.
+
+
+
+
+```{r dt code, warning=FALSE, eval = F}
+test.dt <- function(dat, formula, perc.train = 0.9, maxdepth = 30) {
+  data <- get.imp.train.test(dat, perc.train=0.9)
+  train <- data[[1]]
+  test <- data[[2]]
+  dt.mod <- build.tree(train, formula, maxdepth=30)
+  predictions <- predict.tree(dt.mod, test)
+  results <- table(test$Class, predictions)
+  return (sum(diag(results))/sum(results))
+}
+```
+
+\newpage
 
 4.2 Examine the provided code for a random forest in rf.R– This is a simple implementation:
 the predict.rf(..) function takes an imputed list of datasets, and builds a random forest and does the prediction and returns the accuracy measure (for direct comparison with previous models).
@@ -242,17 +328,20 @@ explain why this model seems superior (does it?) to logistic regression and a si
 
 
 
-```{r, warning=FALSE}
+```{r Model comparison, warning=FALSE}
 par(mfrow = c(2,2))
 for (var in 1:4) {
   num <- sample.int(999, 1)
   set.seed(num)
-  logistic <- replicate(100, test.logistic(hep.imp, Class ~.))
+  logistic <- replicate(10, test.logistic(hep.imp, Class ~.))
   dt <- replicate(100, test.dt(hep.imp, Class ~.))
   rf1 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 1))
   rf5 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 5))
   rf10 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 10))
   rf20 <- replicate(100, test.rf(hep.imp, Class ~., ntrees = 20))
+  t <- wilcox.test(logistic, rf20)
+  cat(t$p.value)
+  cat("\n")
   
   
   results = data.frame(rf1, rf5, rf10, rf20, logistic, dt)
@@ -261,8 +350,14 @@ for (var in 1:4) {
 }
 ```
 
+A random forest is an ensemble of N decision trees built to make a prediction, as this is a classification problem each tree will make a prediction of either died or lived for each test observation and the most popular option between the trees is selected as the prediction. Each tree bootstraps a new set of training data to ensure that each tree is unique. A subset of K variables is selected for each tree and only these variables are used to build the largest possible tree. No pruning of each tree occurs.
+
+After a few runs of testing all models a number of times I found the models the two best performing models to be logistic regression and a twenty tree random forest. Due to the difference in behavior between the models there are reasons for either to be chosen as a final. When there is a significant difference between the models I found logistic regression to have a higher average accuracy than the random forest more often but for the majority of the time there was no significant difference in model performance and the random forest appears much more stable in these cases, which is expected of an ensemble model as there are much more robust. It is for this reason I would select a random forest model as it is able to obtain more consistent results in prediction which is a worthwhile trade-off.
+
+The random forest model also appears to be a stronger model as in some cases it has a performance increases whereas the only change in the decision tree that is noticeable is the amount of variance across a number of runs.
 
 
+\newpage
 
 ## QUESTION FIVE (15 MARKS) – Write approx. 300 words 
 
@@ -290,3 +385,17 @@ Explain the steps that you would follow to understand the patterns in the datase
 building a model for prediction. Ensure in your description that you include comments on
 what information each method or visualisation gives, and why this may be important prior
 to modelling the data. 
+
+
+
+
+
+
+
+When performing analysis on a dataset prior to modelling the first thing I would do is to ensure the data is tidy aside from NA values existing. This is required as each variable can only take on one value per observation. Next I would visualise all of the variables to check for any possible non-linear variables that could be transformed. This makes the variables easier to model and will improve their correlation to other variables. Once all the variables are transformed (if needed), I would then deal with any NA values in the dataset most likely through imputation. I would do this after transforming variables as the new imputed values are likely to model better this way.
+
+Once I am happy with the structure of the data I would make a correlation plot of all the variables to test their relationships to each other. This allows to check which variables have strong relationships to credit risk and which predictors may suffer from colinearity issues or potential confounding. Colinearity issues may not possibly be a concern depending on the model used but less stable methods such as regression will suffer from this. If any predictors do appear to have confounding issues I would also visualise these to try and confirm this. For example from the predictors in the credit data without looking at anything I would already be suspicious of Education level being a confounding effect for income and possibly experience.
+
+I would also visualise theories I have on how different variables related to credit risk such as does someones level of education appear to have a significant association with their credit risk. This would allow for a basic prediction to be made on variable importance without running some extensive bootstrapping tests on the data. The last thing I would test is are all levels of each factor relevant to the data, for instance if someone does not already own a credit card does this provide any significant information to how their credit risk might be affected. In this case I would also test if it appears to provide any significant evidence having accounted for monthly credit card spending as customers who do not own a credit card should have a monthly average credit card spending of zero.
+
+Overall through these methods we should get reasonable insight as to the quality of the data and how meaningful the predictors are in association to credit risk.
